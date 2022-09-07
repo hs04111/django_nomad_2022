@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "django-2022-nomad"
+version = "0.1.0"
+description = ""
+authors = ["SHan <hs04111@naver.com>"]
+license = "MID"
+readme = "README.md"
+packages = [{include = "django_2022_nomad"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Django = "^4.1.1"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
