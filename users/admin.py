@@ -15,7 +15,21 @@ class CustomUserAdmin(UserAdmin):
     # fieldsets는 반드시 오버라이딩해야 한다.
 
     fieldsets = (
-        ("Profile", {"fields": ("username", "password", "is_host", "name")}),
+        (
+            "Profile",
+            {
+                "fields": (
+                    "username",
+                    "password",
+                    "is_host",
+                    "name",
+                    "avatar",
+                    "gender",
+                    "language",
+                    "currency",
+                )
+            },
+        ),
         (
             "Permissions",
             {
