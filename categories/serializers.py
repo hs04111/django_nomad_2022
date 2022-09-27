@@ -8,7 +8,7 @@ from .models import Category
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        field = "__all__"
+        fields = "__all__"
 
 
 # 위의 모델 시리얼라이저를 사용하면 아래와 같은 코드가 포함된다.
