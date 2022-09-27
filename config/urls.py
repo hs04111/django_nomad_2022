@@ -16,10 +16,15 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.conf.urls.static import static
+from django.conf import settings
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/categories/", include("categories.urls")),
     path("api/v1/rooms/", include("rooms.urls")),
     path("api/v1/experiences/", include("experiences.urls")),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# https://docs.djangoproject.com/en/4.1/howto/static-files/#serving-files-uploaded-by-a-user-during-development
+# 개발 중에 유저가 업로드한 파일을 보는 법. 배포 단계에서는 이렇게 하면 안된다.
