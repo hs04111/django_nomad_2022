@@ -9,6 +9,7 @@ from rest_framework.exceptions import (
     ParseError,
     PermissionDenied,
 )
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.status import HTTP_204_NO_CONTENT
 from categories.models import Category
 from reviews.serializers import ReviewSerializer
@@ -57,6 +58,9 @@ class AmenityDetail(APIView):
 
 
 class Rooms(APIView):
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get(self, request):
         all_rooms = Room.objects.all()
         # 아래처럼 serializer에 context를 dict로 넣으면
@@ -70,52 +74,54 @@ class Rooms(APIView):
     def post(self, request):
         # session에 로그인된 유저가 있는지부터 확인하고 아래 작업을 시작한다.
         # https://docs.djangoproject.com/en/4.1/ref/request-response/#django.http.HttpRequest.user
-        if request.user.is_authenticated:
-            serializer = RoomDetailSerializer(data=request.data)
-            if serializer.is_valid():
-                # 카테고리는 클라이언트에서 아이디만 받아 설정할 것
-                # 카테고리의 kind가 room인지 experience인지 확인해야 한다.
-                category_id = request.data.get("category")
-                if not category_id:
-                    raise ParseError("Category is required")
-                try:
-                    category = Category.objects.get(pk=category_id)
-                    if category.kind == Category.CategoryKindChoices.EXPERIENCES:
-                        raise ParseError("The category kind should be 'rooms'")
-                except Category.DoesNotExist:
-                    raise ParseError("Category not found")
+        # 이전 코드에서는 user.is_authenticated로 보았지만, 이제 permission class로 대체한다.
+        # isAuthenticatedOrReadOnly는 get에서는 모두 허용, post는 인증되어야 한다.
+        serializer = RoomDetailSerializer(data=request.data)
+        if serializer.is_valid():
+            # 카테고리는 클라이언트에서 아이디만 받아 설정할 것
+            # 카테고리의 kind가 room인지 experience인지 확인해야 한다.
+            category_id = request.data.get("category")
+            if not category_id:
+                raise ParseError("Category is required")
+            try:
+                category = Category.objects.get(pk=category_id)
+                if category.kind == Category.CategoryKindChoices.EXPERIENCES:
+                    raise ParseError("The category kind should be 'rooms'")
+            except Category.DoesNotExist:
+                raise ParseError("Category not found")
 
-                # request.data에서 유저 정보를 가져오면 안된다. 유저가 직접 보내면 안됨
-                # request.user에는 로그인된 유저가 있다. 이를 보내면 된다.
-                # save()를 할 때 추가적인 validated_data를 보내는 방법은 아래와 같다.
-                # https://www.django-rest-framework.org/api-guide/serializers/#passing-additional-attributes-to-save
+            # request.data에서 유저 정보를 가져오면 안된다. 유저가 직접 보내면 안됨
+            # request.user에는 로그인된 유저가 있다. 이를 보내면 된다.
+            # save()를 할 때 추가적인 validated_data를 보내는 방법은 아래와 같다.
+            # https://www.django-rest-framework.org/api-guide/serializers/#passing-additional-attributes-to-save
 
-                # amenity는 ManyToManyfield이므로, room이 만들어진 후 amenities를 하나씩 더하는 방식으로 진행한다
-                # 만약 amenity가 기존에 존재하지 않는 id를 담고 있으면?
-                # 지금 코드처럼 위에서 생성한 room을 지우고, 처음부터 다시 한다.
-                # 또는, 없는 id에서도 pass를 except문에 입력하려, 있는 amenity만 입력하도록 한다.
+            # amenity는 ManyToManyfield이므로, room이 만들어진 후 amenities를 하나씩 더하는 방식으로 진행한다
+            # 만약 amenity가 기존에 존재하지 않는 id를 담고 있으면?
+            # 지금 코드처럼 위에서 생성한 room을 지우고, 처음부터 다시 한다.
+            # 또는, 없는 id에서도 pass를 except문에 입력하려, 있는 amenity만 입력하도록 한다.
 
-                # transaction: Django는 기본적으로 autocommit 모드이다. 즉, 각각의 query가 transaction으로 둘러싸여
-                # 하나씩 commit되거나, 하나씩 roll back된다.
-                # 만약 여러 query를 django가 내부적으로 검토하고 한번에 commit되도록 하고 싶다면
-                # transaction.atomic을 사용하여 아래와 같이 코드를 작성한다.
-                try:
-                    with transaction.atomic():
-                        room = serializer.save(owner=request.user, category=category)
-                        amenities = request.data.get("amenities")
-                        for amenity_id in amenities:
-                            amenity = Amenity.objects.get(pk=amenity_id)
-                            room.amenities.add(amenity)
-                        return Response(RoomDetailSerializer(room).data)
-                except Exception:
-                    raise ParseError("Amenity not found")
-            else:
-                return Response(serializer.errors)
+            # transaction: Django는 기본적으로 autocommit 모드이다. 즉, 각각의 query가 transaction으로 둘러싸여
+            # 하나씩 commit되거나, 하나씩 roll back된다.
+            # 만약 여러 query를 django가 내부적으로 검토하고 한번에 commit되도록 하고 싶다면
+            # transaction.atomic을 사용하여 아래와 같이 코드를 작성한다.
+            try:
+                with transaction.atomic():
+                    room = serializer.save(owner=request.user, category=category)
+                    amenities = request.data.get("amenities")
+                    for amenity_id in amenities:
+                        amenity = Amenity.objects.get(pk=amenity_id)
+                        room.amenities.add(amenity)
+                    return Response(RoomDetailSerializer(room).data)
+            except Exception:
+                raise ParseError("Amenity not found")
         else:
-            raise NotAuthenticated
+            return Response(serializer.errors)
 
 
 class RoomDetail(APIView):
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get_object(self, pk):
         try:
             return Room.objects.get(pk=pk)
@@ -129,8 +135,6 @@ class RoomDetail(APIView):
 
     def put(self, request, pk):
         room = self.get_object(pk)
-        if not request.user.is_authenticated:
-            raise NotAuthenticated
         if request.user != room.owner:
             raise PermissionDenied
         serializer = RoomDetailSerializer(room, data=request.data, partial=True)
@@ -164,8 +168,7 @@ class RoomDetail(APIView):
 
     def delete(self, request, pk):
         room = self.get_object(pk)
-        if not request.user.is_authenticated:
-            raise NotAuthenticated
+
         if request.user != room.owner:
             raise PermissionDenied
         room.delete()
@@ -215,6 +218,9 @@ class RoomAmenitiesList(APIView):
 
 
 class RoomPhotos(APIView):
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get_object(self, pk):
         try:
             return Room.objects.get(pk=pk)
@@ -223,8 +229,6 @@ class RoomPhotos(APIView):
 
     def post(self, request, pk):
         room = self.get_object(pk)
-        if not request.user.is_authenticated:
-            raise NotAuthenticated
         if request.user != room.owner:
             raise PermissionDenied
         serializer = PhotoSerializer(data=request.data)
