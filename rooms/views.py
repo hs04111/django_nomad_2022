@@ -16,6 +16,7 @@ from reviews.serializers import ReviewSerializer
 from medias.serializers import PhotoSerializer
 from .serializers import AmenitySerializer, RoomListSerializer, RoomDetailSerializer
 from .models import Amenity, Room
+from rooms import serializers
 
 
 class Amenities(APIView):
@@ -175,7 +176,10 @@ class RoomDetail(APIView):
         return Response(status=HTTP_204_NO_CONTENT)
 
 
-class RoomReviewsList(APIView):
+class RoomReviews(APIView):
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get_object(self, pk):
         try:
             return Room.objects.get(pk=pk)
@@ -194,6 +198,15 @@ class RoomReviewsList(APIView):
             room.reviews.all()[3 * (page - 1) : 3 * page], many=True
         )
         return Response(serializer.data)
+
+    def post(self, request, pk):
+        room = self.get_object(pk)
+        serializer = ReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            review = serializer.save(user=request.user, room=room)
+            return Response(ReviewSerializer(review).data)
+        else:
+            return Response(serializer.errors)
 
 
 class RoomAmenitiesList(APIView):

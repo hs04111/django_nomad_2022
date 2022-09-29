@@ -12,8 +12,11 @@ class Wishlist(CommonModel):
         return self.name
 
     name = models.CharField(max_length=150)
-    rooms = models.ManyToManyField("rooms.Room")
-    experinces = models.ManyToManyField("experiences.Experience")
+    rooms = models.ManyToManyField(
+        "rooms.Room",
+        blank=True,
+    )
+    experinces = models.ManyToManyField("experiences.Experience", blank=True)
     user = models.ForeignKey(
         "users.User", on_delete=models.CASCADE, related_name="wishlists"
     )
