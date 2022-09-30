@@ -12,7 +12,6 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticate
 from rest_framework.status import HTTP_204_NO_CONTENT, HTTP_200_OK
 from .models import Wishlist
 from .serializers import WishlistSerializer
-from wishlists import serializers
 from rooms.models import Room
 
 
@@ -63,6 +62,7 @@ class WishlistDetail(APIView):
         wishlist.delete()
         return Response(status=HTTP_204_NO_CONTENT)
 
+    # wishlist의 name만 변경하는 기능
     def put(self, request, pk):
         wishlist = self.get_object(pk, request.user)
         serializer = WishlistSerializer(
@@ -82,6 +82,10 @@ class WishlistDetail(APIView):
 
 
 class WishlistToggle(APIView):
+
+    # wishlist에 room이 있으면 빼고, 없으면 넣는다.
+    # room의 존재 유무를 exists()로 확인하는 것이 중요
+    # https://docs.djangoproject.com/en/4.1/ref/models/querysets/#exists
     def get_wishlist(self, pk, user):
         try:
             return Wishlist.objects.get(pk=pk, user=user)

@@ -1,6 +1,8 @@
 from functools import partial
+from re import L
 from django.shortcuts import render
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import (
@@ -14,9 +16,10 @@ from rest_framework.status import HTTP_204_NO_CONTENT
 from categories.models import Category
 from reviews.serializers import ReviewSerializer
 from medias.serializers import PhotoSerializer
+from bookings.models import Booking
+from bookings.serializers import PublicBookingSerializer
 from .serializers import AmenitySerializer, RoomListSerializer, RoomDetailSerializer
 from .models import Amenity, Room
-from rooms import serializers
 
 
 class Amenities(APIView):
@@ -250,3 +253,27 @@ class RoomPhotos(APIView):
             return Response(PhotoSerializer(photo).data)
         else:
             return Response(serializer.errors)
+
+
+class RoomBookings(APIView):
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_object(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound
+
+    # 해당 room의 지금보다 미래의 booking들을 filter해서 보여주는 api
+    # timezone의 사용법을 확인할 것.
+    # https://docs.djangoproject.com/en/4.1/ref/utils/#module-django.utils.timezone
+    def get(self, request, pk):
+        room = self.get_object(pk)
+        now = timezone.localtime(timezone.now()).date
+        bookings = Booking.objects.filter(
+            room=room,
+            kind=Booking.BookingKindChoices.ROOM,
+            check_in__gt=now,
+        )
+        return Response(PublicBookingSerializer(bookings, many=True).data)
