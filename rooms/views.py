@@ -17,7 +17,7 @@ from categories.models import Category
 from reviews.serializers import ReviewSerializer
 from medias.serializers import PhotoSerializer
 from bookings.models import Booking
-from bookings.serializers import PublicBookingSerializer
+from bookings.serializers import PublicBookingSerializer, CreateRoomBookingSerializer
 from .serializers import AmenitySerializer, RoomListSerializer, RoomDetailSerializer
 from .models import Amenity, Room
 
@@ -277,3 +277,13 @@ class RoomBookings(APIView):
             check_in__gt=now,
         )
         return Response(PublicBookingSerializer(bookings, many=True).data)
+
+    def post(self, request, pk):
+        room = self.get_object(pk)
+        serializer = CreateRoomBookingSerializer(data=request.data)
+        if serializer.is_valid():
+            # 이제 여기서 체크인 시간 등을 validate할 수도 있지만,
+            # is_valid() 단계에서 확인할 수 있도록 serializer를 customize한다.
+            return Response({"ok": True})
+        else:
+            return Response(serializer.errors)
